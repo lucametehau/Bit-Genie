@@ -57,7 +57,7 @@ constexpr int get_score(Piece piece)
     constexpr int queen = S(QueenScoreMg, QueenScoreEg);
 
     constexpr int scores[13]{
-        pawn, knight, bishop, rook, queen, 0 - pawn, -knight, -bishop, -rook, -queen, 0, 0};
+        pawn, knight, bishop, rook, queen, 0, -pawn, -knight, -bishop, -rook, -queen, 0, 0};
 
     return scores[piece];
 }

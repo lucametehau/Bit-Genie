@@ -116,6 +116,7 @@ static int evaluate_pawn(Position const &position, Square sq, Color us)
     score += PawnEval::psqt[psqt_sq(sq, us)];
     score += pawn_is_isolated(friend_pawns, sq) * PawnEval::isolated;
     score += pawn_is_stacked(friend_pawns, sq) * PawnEval::stacked;
+    score += S(PawnScoreMg, PawnScoreEg);
 
     return score;
 }
@@ -126,6 +127,7 @@ static int evaluate_knight(Position const &position, Square sq, Color us)
 
     score += KnightEval::psqt[psqt_sq(sq, us)];
     score += calculate_moblity<Knight, true>(position, sq, us, KnightEval::mobility);
+    score += S(KnightScoreMg, KnightScoreEg);
 
     return score;
 }
@@ -153,6 +155,7 @@ static int evaluate_rook(Position const &position, Square sq, Color us)
     score += calculate_moblity<Rook>(position, sq, us, RookEval::mobility);
     score += is_on_open_file(position, sq)     * RookEval::open_file;
     score += is_on_semiopen_file(position, sq) * RookEval::semi_open_file;
+    score += S(RookScoreMg, RookScoreEg);
 
     return score;
 }
@@ -165,6 +168,7 @@ static int evaluate_queen(Position const &position, Square sq, Color us)
     score += calculate_moblity<Queen>(position, sq, us, QueenEval::mobility);
     score += is_on_open_file(position, sq) * QueenEval::open_file;
     score += is_on_semiopen_file(position, sq) * QueenEval::semi_open_file;
+    score += S(QueenScoreMg, QueenScoreEg);
 
     return score;
 }
@@ -175,6 +179,7 @@ static int evaluate_bishop(Position const &position, Square sq, Color us)
 
     score += BishopEval::psqt[psqt_sq(sq, us)];
     score += calculate_moblity<Bishop>(position, sq, us, BishopEval::mobility);
+    score += S(BishopScoreMg, BishopScoreEg);
 
     return score;
 }
@@ -201,28 +206,6 @@ static int evaluate_piece(Position const &position, Callable F)
 
     score += evaluate_piece(position, F, white, Color::White);
     score -= evaluate_piece(position, F, black, Color::Black);
-    return score;
-}
-
-static int material_balance(uint64_t pieces, PieceType piece)
-{
-    return popcount64(pieces) * get_score(Piece(piece));
-}
-
-static int material_balance(Position const &position)
-{
-    auto &pieces = position.pieces;
-    int score = 0;
-
-    for (int i = 0; i < total_pieces; i++)
-    {
-        PieceType type = PieceType(i);
-        uint64_t white = pieces.bitboards[i] & pieces.colors[White];
-        uint64_t black = pieces.bitboards[i] & pieces.colors[Black];
-
-        score += material_balance(white, type);
-        score -= material_balance(black, type);
-    }
     return score;
 }
 
@@ -267,7 +250,6 @@ int eval_position(Position const &position)
     if (material_draw(position))
         return 0;
 
-    score += material_balance(position);
     score += evaluate_piece<Pawn>(position, evaluate_pawn);
     score += evaluate_piece<Knight>(position, evaluate_knight);
     score += evaluate_piece<Rook>(position, evaluate_rook);
