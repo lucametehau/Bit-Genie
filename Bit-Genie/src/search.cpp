@@ -22,6 +22,7 @@
 #include "moveorder.h"
 #include "tt.h"
 #include <sstream>
+#include "evalscores.h"
 #include <cmath>
 
 int lmr_reductions_array[64][64]{0};
@@ -135,18 +136,14 @@ namespace
         if ((position.history.is_drawn(position.key) || position.half_moves >= 100) && search.info.ply)
             return 0;
 
-        TEntry const &entry = tt.retrieve(position);
+        TEntry& entry = tt.retrieve(position);
 
         if (entry.depth >= depth && entry.hash == position.key.data())
         {
-            if (entry.flag == TEFlag::exact)
-                return SearchResult(entry.score, (Move)entry.move);
-
-            if (entry.flag == TEFlag::upper && entry.score <= alpha)
-                return SearchResult(alpha, (Move)entry.move);
-
-            else if (entry.flag == TEFlag::lower && entry.score >= beta)
-                return SearchResult(beta, (Move)entry.move);
+            if (entry.flag == TEFlag::exact || 
+               (entry.flag == TEFlag::lower && entry.score >= beta) || 
+               (entry.flag == TEFlag::upper && entry.score <= alpha))
+                return { entry.score, (Move)entry.move };
         }
 
         bool in_check = position.king_in_check();
@@ -231,9 +228,7 @@ namespace
                     search.history.penalty(position, picker.gen.movelist, move, depth);
                     search.killers.add(search.info.ply, move);
                 }
-
-                tt.add(position, move, beta, depth, TEFlag::lower);
-                return {beta, result.best_move};
+                break;
             }
         }
 
@@ -249,13 +244,10 @@ namespace
         if (search.limits.stopped)
             return 0;
 
-        if (alpha != original)
-            tt.add(position, result.best_move, result.score, depth, TEFlag::exact);
+        TEFlag flag = result.score <= original ? TEFlag::upper : result.score >= beta ? TEFlag::lower : TEFlag::upper;
+        tt.add(position, result.best_move, result.score, depth, flag);
 
-        else
-            tt.add(position, result.best_move, alpha, depth, TEFlag::upper);
-
-        return SearchResult(alpha, result.best_move);
+        return result;
     }
 
     int mate_distance(int score)
@@ -278,8 +270,9 @@ namespace
             o << "mate " << mate_distance(score);
         }
         else
+#define mg_score(s) ((int16_t)((uint16_t)((unsigned)((s)))))
         {
-            o << "cp " << int(score * 100 / PawnScoreMg);
+            o << "cp " << int(score * 100 / mg_score(PawnEval::value));
         }
         return o.str();
     }
